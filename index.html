@@ -1,0 +1,720 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vektor-Empfehler</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>:root{color-scheme:light}body{margin:0}</style>
+<style>
+  /* Einspaltig in dieser Reihenfolge: Favorit, Präferenzen, Abbildung, Ranking. */
+  :root {
+    --bg: #edf0f2;
+    --surface: #ffffff;
+    --ink: #121a1f;
+    --muted: #5d6b74;
+    --line: #d9dfe3;
+    --accent: #0a7c78;
+    --accent-ink: #ffffff;
+    --accent-soft: #dff1ef;
+    --mark: #b8560b;
+    --font-body: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0e1316; --surface: #161d21; --ink: #e8eef1; --muted: #8fa0aa;
+      --line: #263036; --accent: #4cc9bf; --accent-ink: #062321; --accent-soft: #14312f; --mark: #f2a65a;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e1316; --surface: #161d21; --ink: #e8eef1; --muted: #8fa0aa;
+    --line: #263036; --accent: #4cc9bf; --accent-ink: #062321; --accent-soft: #14312f; --mark: #f2a65a;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font-family: var(--font-body); font-size: 15px; line-height: 1.5;
+    padding-inline: 16px; padding-block: 32px 48px;
+  }
+  [hidden] { display: none !important; }
+  .wrap { max-width: 880px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px; }
+  header p { margin: 0; color: var(--muted); max-width: 60ch; }
+  h1 { font-size: clamp(1.6rem, 4vw, 2.2rem); line-height: 1.1; letter-spacing: -0.02em; margin: 0 0 8px; text-wrap: balance; }
+  h2 { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; }
+  .eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+
+  /* Favorit */
+  .picker { display: flex; flex-direction: column; gap: 10px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .chips .eyebrow { width: 52px; flex: none; }
+  .chip, .more-select {
+    font: inherit; font-size: 13px; font-weight: 500; color: var(--ink);
+    background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px; cursor: pointer;
+  }
+  .chip:hover { background: var(--accent-soft); }
+  .chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .more-select { max-width: 100%; }
+
+  /* Präferenzen */
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  .panel-top { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: end; }
+  .u-vector {
+    font-family: var(--font-mono); font-weight: 600; font-size: 14px; line-height: 1.6;
+    background: var(--accent-soft); color: var(--accent); border-radius: 6px; padding: 8px 10px;
+    overflow-x: auto; white-space: nowrap; min-width: 0; max-width: 100%;
+  }
+  .sliders { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px 28px; }
+  .group { grid-column: 1 / -1; margin-top: 4px; }
+  .group:first-child { margin-top: 0; }
+  .slider label { display: flex; justify-content: space-between; font-size: 13px; font-weight: 500; margin-bottom: 4px; }
+  .slider output { font-family: var(--font-mono); color: var(--accent); font-weight: 600; }
+  input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; display: block; }
+
+  .seg { display: inline-flex; flex-wrap: wrap; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface); }
+  .seg button {
+    font: inherit; font-size: 13px; font-weight: 500; color: var(--ink);
+    background: transparent; border: 0; padding: 6px 10px; cursor: pointer;
+  }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+  .seg button:hover:not([aria-pressed="true"]) { background: var(--accent-soft); }
+  button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 12px 20px; margin-bottom: 12px; }
+  .control { display: flex; flex-direction: column; gap: 4px; }
+
+  /* Abbildung */
+  .fav-box { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; margin-top: 14px; max-width: 100%; }
+  .v-vector { background: var(--surface); color: var(--ink); border: 1px solid var(--line); }
+  .fav-name { font-size: 1.15rem; font-weight: 700; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .tag { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; }
+  .meta { font-size: 12px; color: var(--muted); }
+  .v { font-family: var(--font-mono); font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+  figure { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px; min-width: 0; }
+  figcaption { font-size: 12.5px; color: var(--muted); margin-top: 8px; }
+  svg { width: 100%; height: auto; display: block; }
+  #svgMain { max-width: 520px; margin-inline: auto; }
+  svg text { font-family: var(--font-body); font-size: 13px; fill: var(--muted); }
+  svg .big { font-family: var(--font-mono); font-size: 17px; font-weight: 600; fill: var(--ink); }
+  svg .t-ink { fill: var(--ink); font-weight: 600; }
+  svg .t-acc { fill: var(--accent); font-weight: 600; }
+  svg .t-mark { fill: var(--mark); font-weight: 600; }
+  svg .axis { stroke: var(--line); stroke-width: 1.5; }
+  svg .unit { stroke: var(--line); stroke-width: 1.5; fill: none; }
+  svg .vv { stroke: var(--ink); stroke-width: 3; stroke-linecap: round; }
+  svg .vv-head { fill: var(--ink); }
+  svg .uu { stroke: var(--accent); stroke-width: 3; stroke-linecap: round; }
+  svg .uu-head { fill: var(--accent); }
+  svg .drop { stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 5 4; fill: none; }
+  svg .proj { stroke: var(--mark); stroke-width: 5; stroke-linecap: round; }
+  svg .arc { stroke: var(--muted); stroke-width: 1.5; fill: none; }
+  svg .xfer { stroke: var(--mark); stroke-width: 1.5; stroke-dasharray: 2 4; stroke-linecap: round; fill: none; }
+  svg .rect { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 2; }
+  svg .rect-top { fill: none; stroke: var(--muted); stroke-width: 2; stroke-dasharray: 7 5; }
+  .legend { display: flex; flex-direction: column; gap: 6px; font-size: 13px; margin-top: 8px; }
+  .legend > div { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
+  .sw { width: 22px; height: 12px; border-radius: 2px; flex: none; }
+  .sw.fav { background: var(--accent-soft); border: 2px solid var(--accent); }
+  .sw.top { border: 2px dashed var(--muted); }
+  .legend b { font-family: var(--font-mono); font-weight: 600; }
+  .legend button { font: inherit; font-size: 12px; font-weight: 500; color: var(--accent); background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 1px 10px; cursor: pointer; }
+  .legend button:hover { background: var(--accent-soft); }
+
+  /* Nachrechnen */
+  .calc-intro { margin: 0; color: var(--muted); font-size: 13.5px; max-width: 64ch; }
+  .field { display: inline-flex; align-items: center; gap: 6px; }
+  .calc input, .calc-sum input {
+    font: inherit; font-family: var(--font-mono); font-weight: 600; width: 76px; padding: 5px 8px; text-align: right;
+    color: var(--ink); background: var(--bg); border: 1.5px solid var(--line); border-radius: 6px;
+  }
+  .calc input[data-state="ok"], .calc-sum input[data-state="ok"] { border-color: var(--accent); }
+  .calc input[data-state="bad"], .calc-sum input[data-state="bad"] { border-color: var(--mark); }
+  .glyph { font-style: normal; font-weight: 700; width: 1em; }
+  .glyph.ok { color: var(--accent); }
+  .glyph.bad { color: var(--mark); }
+  .calc-sum { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 14px; }
+  .calc-sum input { width: 96px; }
+  .solve { font: inherit; font-size: 12.5px; font-weight: 500; color: var(--accent); background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 3px 12px; cursor: pointer; }
+  .solve:hover { background: var(--accent-soft); }
+  .calc-solution { font-family: var(--font-mono); font-size: 13px; background: var(--accent-soft); color: var(--accent); border-radius: 6px; padding: 8px 10px; overflow-x: auto; }
+
+  /* Ranking */
+  .formula {
+    font-family: var(--font-mono); font-size: 13px; color: var(--muted);
+    border-left: 3px solid var(--accent); padding: 4px 0 4px 12px; margin-bottom: 16px; overflow-x: auto;
+  }
+  .list { list-style: none; margin: 0; padding: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+  .row {
+    display: grid; grid-template-columns: 32px minmax(0, 1fr) minmax(120px, 200px);
+    gap: 4px 14px; align-items: center; padding: 12px 16px;
+  }
+  .row + .row { border-top: 1px solid var(--line); }
+  .row.is-fav { background: var(--accent-soft); }
+  .rank { font-family: var(--font-mono); font-size: 13px; color: var(--muted); }
+  .row:first-child .rank { color: var(--accent); font-weight: 600; }
+  .info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .name { font-weight: 600; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .score { text-align: right; }
+  .score b { font-family: var(--font-mono); font-size: 20px; font-variant-numeric: tabular-nums; }
+  .bar { height: 5px; background: var(--line); border-radius: 3px; margin-top: 6px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--accent); border-radius: 3px; transition: width 0.25s ease; }
+  @media (max-width: 480px) {
+    .row { grid-template-columns: 28px minmax(0, 1fr); }
+    .score { grid-column: 2; text-align: left; }
+  }
+  .more {
+    display: block; width: 100%; margin-top: 12px; padding: 10px; font: inherit; font-size: 13px; font-weight: 600;
+    color: var(--accent); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; cursor: pointer;
+  }
+  .more:hover { background: var(--accent-soft); }
+  @media (prefers-reduced-motion: reduce) { .bar i { transition: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Film-Empfehler</h1>
+    <p>Dein Filmgeschmack ist ein Vektor u, jeder Titel ein Vektor v. Wie gut ein Film oder eine Serie zu deinem Geschmack passt, kann mithilfe des Skalarprodukts u · v modelliert werden.</p>
+  </header>
+
+  <section aria-label="Favorit wählen">
+    <h2>1 · Dein Favorit</h2>
+    <div class="picker">
+      <div class="chips" id="chipsF"></div>
+      <div class="chips" id="chipsS"></div>
+      <div class="chips"><span class="eyebrow">Mehr</span><select class="more-select" id="moreSel" aria-label="Weiteren Titel wählen"></select></div>
+    </div>
+    <div class="fav-box">
+      <span class="fav-name" id="favName"></span>
+      <span class="meta" id="favMeta"></span>
+    </div>
+  </section>
+
+  <section aria-label="Deine Präferenzen">
+    <h2>2 · Deine Präferenzen</h2>
+    <div class="panel">
+      <div class="panel-top">
+        <div class="control"><span class="eyebrow">Dimensionen</span><div class="seg" id="dimSeg"></div></div>
+      </div>
+      <div class="sliders" id="sliders"></div>
+      <div class="control" style="min-width:0"><span class="eyebrow">Dein Vektor</span><div class="u-vector" id="uOut"></div></div>
+    </div>
+  </section>
+
+  <section aria-label="Nachrechnen">
+    <h2>3 · Selbst nachrechnen</h2>
+    <div class="panel">
+      <p class="calc-intro">Berechne das Skalarprodukt von u und dem Vektor des Favoriten und trage das Ergebnis ein.</p>
+      <div class="control" style="min-width:0"><span class="eyebrow" id="favVecLbl">Vektor des Favoriten</span><div class="u-vector v-vector" id="favVec"></div></div>
+      <div class="calc-sum">
+        <label for="calcSum"><b>u · v</b> =</label>
+        <span class="field"><input id="calcSum" type="number" inputmode="numeric" min="0" step="1" data-state=""><i class="glyph" id="glyphSum" aria-hidden="true"></i></span>
+        <button type="button" class="solve" id="solve" aria-expanded="false">Lösung zeigen</button>
+      </div>
+      <div class="calc-solution" id="solution" hidden></div>
+    </div>
+  </section>
+
+  <section aria-label="Abbildung">
+    <h2>4 · Passung als Abbildung</h2>
+    <div class="controls">
+      <div class="control"><span class="eyebrow">Maß</span><div class="seg" id="metricSeg"></div></div>
+      <div class="control"><span class="eyebrow">Datenbasis</span><div class="seg" id="scopeSeg"></div></div>
+      <div class="control"><span class="eyebrow">Typ</span><div class="seg" id="typeSeg"></div></div>
+    </div>
+    <figure>
+      <svg id="svgMain" viewBox="0 0 380 400" role="img"></svg>
+      <div class="legend" id="legend"></div>
+      <figcaption id="cap"></figcaption>
+    </figure>
+  </section>
+
+  <section aria-label="Ranking">
+    <h2>5 · Ranking</h2>
+    <div class="formula" id="formula"></div>
+    <ol class="list" id="list"></ol>
+    <button type="button" class="more" id="more"></button>
+  </section>
+</div>
+
+<script>
+  // Dimensionen in der Reihenfolge ihrer Relevanz (meine Einschätzung, nicht gemessen)
+  const LABELS = [
+    "Krimi & Thriller", "Drama", "Komödie", "Action", "Science-Fiction & Fantasy",
+    "Spannung", "Düstere Atmosphäre", "Gefühlsdichte", "Handlungskomplexität", "Realitätsbezug"
+  ];
+  const GENRE_COUNT = 5; // die ersten fünf Dimensionen sind Genres
+
+  // Titel;Typ (F = Film, S = Serie);zehn Werte von 0 bis 10 in der Reihenfolge von LABELS;optional: Beleg (nur Auswahl)
+  const RAW = `
+24;S;9,6,0,10,0,10,7,4,6,2;Emmy Beste Dramaserie 2006
+Game of Thrones;S;3,9,2,9,10,9,9,7,10,0;Emmy Beste Dramaserie 2015, 2016, 2018, 2019 · JustWatch Deutschland 2023: Platz 7
+The Crown;S;0,10,1,0,0,3,4,7,6,10;Emmy Beste Dramaserie 2021
+Friends;S;0,4,10,1,0,1,1,6,3,4;Emmy Beste Comedyserie 2002
+The Office;S;0,3,10,1,0,1,1,4,4,5
+Squid Game;S;9,8,2,8,0,9,9,8,5,0;Netflix: 265,2 Mio. Aufrufe (Staffel 1) · JustWatch Deutschland: Halbjahr 2025 Platz 2
+Forrest Gump;F;1,10,8,3,1,3,4,10,5,5;Oscar Bester Film 1995
+Das Schweigen der Lämmer;F;10,7,1,4,0,10,10,6,8,3;Oscar Bester Film 1992
+Oppenheimer;F;4,10,0,2,0,8,9,8,10,10;Oscar Bester Film 2024 · JustWatch Deutschland 2024: Platz 1
+Der Herr der Ringe: Die Rückkehr des Königs;F;1,7,1,9,10,8,6,9,7,0;Oscar Bester Film 2004 · Kino Deutschland: 10,4 Mio. Besucher
+Gladiator;F;3,8,1,9,0,7,8,8,5,3
+Ziemlich beste Freunde;F;1,8,9,0,0,2,2,9,3,9;César Bester Darsteller 2012 · Kino Deutschland: 9,0 Mio. Besucher
+Die Verurteilten;F;7,10,1,2,0,7,10,10,8,7
+Der Pate;F;10,9,1,8,0,8,10,9,9,7
+The Dark Knight;F;8,6,2,10,2,10,9,7,8,2
+Schindlers Liste;F;3,10,0,3,0,7,10,10,7,10
+Inception;F;7,5,2,9,10,9,7,6,10,0
+Interstellar;F;3,8,1,8,10,8,8,9,9,1
+Breaking Bad;S;10,9,3,9,1,10,10,9,9,5
+Band of Brothers;S;3,9,1,9,0,8,9,9,7,10
+Stranger Things;S;5,6,4,8,9,8,7,7,6,0
+The Wire;S;10,9,2,7,0,7,10,8,10,9
+Pulp Fiction;F;10,5,8,9,0,7,8,5,9,2
+Matrix;F;5,3,2,10,10,8,8,5,8,0
+Titanic;F;2,9,2,4,0,6,7,10,5,6
+Dark;S;8,8,1,6,10,9,10,8,10,0
+Bridgerton;S;1,8,7,1,2,3,3,9,4,2
+Sherlock;S;10,4,5,7,1,8,7,6,9,2
+Der Pate II;F;10,9,1,8,0,8,10,9,9,7
+Die zwölf Geschworenen;F;8,9,1,0,0,8,7,8,7,6
+Der Herr der Ringe: Die Gefährten;F;1,6,1,8,10,7,6,8,6,0
+Der Herr der Ringe: Die zwei Türme;F;1,6,1,9,10,8,7,8,6,0
+Fight Club;F;8,8,5,7,1,8,9,6,8,1
+Star Wars: Eine neue Hoffnung;F;1,4,4,8,10,6,4,6,5,0;Sechs Oscars 1978, nominiert als Bester Film
+Star Wars: Das Imperium schlägt zurück;F;1,5,3,8,10,7,6,7,6,0
+Zurück in die Zukunft;F;1,3,8,5,9,6,2,6,6,0
+Se7en;F;10,8,0,5,0,9,10,6,8,3
+Terminator 2;F;4,4,2,10,9,8,7,6,6,0
+Der Soldat James Ryan;F;2,9,1,10,0,8,9,8,5,8
+Die Truman Show;F;3,9,6,1,3,5,4,8,7,1
+Das Leben ist schön;F;1,10,7,2,0,5,6,10,5,6
+Léon – Der Profi;F;8,7,2,8,0,8,8,8,5,2
+Das Boot;F;6,9,0,5,0,9,10,7,6,9
+Alien;F;8,3,0,7,10,10,10,4,6,0
+Aliens;F;5,2,1,10,10,9,8,5,5,0
+Blade Runner;F;7,6,0,5,10,6,9,6,8,0
+Blade Runner 2049;F;6,8,0,5,10,6,9,7,8,0
+Mad Max: Fury Road;F;3,2,2,10,8,8,7,4,3,0
+Joker;F;8,9,1,4,0,7,10,8,6,3
+Parasite;F;8,9,6,3,0,9,8,8,8,3
+Whiplash;F;3,9,1,2,0,8,7,8,5,4
+Django Unchained;F;4,7,6,9,0,7,7,6,6,3
+Inglourious Basterds;F;6,8,6,8,0,9,8,6,7,2
+Kill Bill: Volume 1;F;5,3,5,10,0,7,7,5,4,0
+Reservoir Dogs;F;9,7,6,7,0,8,9,4,6,2
+Goodfellas;F;8,9,5,7,0,7,9,7,7,9
+Casino;F;8,8,3,6,0,7,9,6,7,8
+Scarface;F;9,7,2,8,0,7,9,6,5,3
+Heat;F;9,7,1,9,0,9,8,6,7,4
+No Country for Old Men;F;10,8,2,6,0,10,10,5,7,2
+There Will Be Blood;F;3,10,0,3,0,7,10,6,7,5
+Prisoners;F;10,8,0,4,0,10,10,8,8,2
+Shutter Island;F;9,7,0,4,0,9,10,8,9,1
+Memento;F;10,7,0,4,1,9,9,6,10,1
+The Prestige;F;7,8,1,3,2,8,8,7,10,1
+Avatar;F;1,3,2,9,10,6,3,7,4,0
+Avengers: Endgame;F;2,5,6,10,9,7,5,8,6,0
+Iron Man;F;2,3,7,8,8,5,3,4,3,0
+Spider-Man: No Way Home;F;2,5,7,9,8,6,4,7,5,0
+Guardians of the Galaxy;F;1,3,8,8,10,5,3,6,3,0
+Jurassic Park;F;5,3,3,8,8,8,5,5,4,0
+Der weiße Hai;F;9,4,1,6,0,10,8,4,3,2
+Jäger des verlorenen Schatzes;F;4,2,5,9,3,7,3,4,3,0
+E.T. – Der Außerirdische;F;1,8,3,2,8,4,2,10,2,0
+Der König der Löwen;F;1,8,5,3,5,4,4,10,3,0
+Toy Story;F;1,5,9,4,3,3,1,8,3,0
+Findet Nemo;F;1,5,8,4,2,4,2,8,3,0
+Hangover;F;2,2,10,3,0,4,3,2,4,1
+Brautalarm;F;0,4,10,1,0,2,2,5,3,3
+Superbad;F;0,3,10,1,0,2,2,4,2,3
+Die nackte Kanone;F;3,0,10,4,0,2,1,1,2,0
+Dumm und Dümmer;F;0,2,10,2,0,1,1,3,1,0
+Mrs. Doubtfire;F;0,7,10,1,0,2,2,8,3,2
+Good Will Hunting;F;1,10,6,0,0,3,5,10,5,6
+A Beautiful Mind;F;3,9,2,1,0,5,5,9,8,9
+The Imitation Game;F;5,9,1,1,0,7,6,8,8,10
+Der Pianist;F;2,10,0,3,0,7,10,10,5,10
+Braveheart;F;1,9,1,9,0,6,8,8,4,6
+Der Untergang;F;2,10,0,5,0,7,10,8,5,10
+Apocalypse Now;F;3,9,1,8,0,7,10,6,7,5
+Full Metal Jacket;F;2,8,3,7,0,6,9,5,5,6
+Dunkirk;F;4,8,0,9,0,9,8,7,6,10
+1917;F;4,8,0,9,0,10,8,7,4,9
+Barbie;F;0,5,9,1,7,2,1,7,4,0
+Dune;F;2,6,1,8,10,6,7,6,6,0
+Dune: Part Two;F;2,6,1,9,10,7,7,7,6,0
+Arrival;F;3,8,0,1,10,6,7,9,8,0
+Gravity;F;6,7,0,7,9,9,6,7,3,1
+Der Marsianer;F;3,6,8,5,10,7,3,6,6,2
+Ex Machina;F;7,7,0,2,10,8,8,6,8,0
+Her;F;1,9,3,0,8,3,5,9,6,0
+Eternal Sunshine of the Spotless Mind;F;1,9,4,1,6,4,5,10,8,0
+Lost in Translation;F;0,9,5,0,0,1,3,8,3,6
+Amélie;F;1,7,8,1,5,2,1,8,4,1
+Chihiros Reise ins Zauberland;F;1,7,3,3,10,5,3,9,6,0
+Mein Nachbar Totoro;F;0,6,5,1,10,1,1,9,2,0
+Prinzessin Mononoke;F;1,7,1,8,10,6,6,8,6,0
+Coco;F;1,7,6,3,8,4,3,10,4,0
+Wall-E;F;1,7,6,3,9,4,3,9,4,0
+Oben;F;0,8,7,3,3,3,3,10,3,0
+Soul;F;0,8,7,1,6,3,2,9,5,0
+Drive;F;8,7,1,7,0,7,9,5,3,1
+John Wick;F;7,4,2,10,0,7,7,3,3,0
+Die Bourne Identität;F;8,4,1,9,0,9,6,4,6,2
+Casino Royale;F;7,5,3,9,0,8,6,5,5,1
+Skyfall;F;7,6,3,9,0,8,6,6,5,1
+Mission: Impossible – Fallout;F;7,3,2,10,0,9,5,3,5,0
+Top Gun: Maverick;F;2,7,3,9,0,7,2,7,3,2
+Rocky;F;1,9,2,6,0,5,5,9,2,5
+Der Exorzist;F;8,5,0,3,4,9,10,5,5,2
+Hereditary;F;8,8,0,2,3,9,10,7,6,1
+Get Out;F;9,6,3,3,0,9,9,6,7,2
+Shining;F;9,5,1,2,3,9,10,5,7,1
+Psycho;F;10,5,0,2,0,10,9,4,6,3
+Vertigo;F;9,7,0,1,0,8,8,7,8,2
+Citizen Kane;F;3,10,1,0,0,4,6,7,7,4
+Casablanca;F;3,9,3,2,0,5,5,9,4,6
+Lawrence von Arabien;F;1,9,1,6,0,5,5,7,5,8
+2001: Odyssee im Weltraum;F;2,5,0,1,10,4,7,5,10,0
+Taxi Driver;F;8,9,1,3,0,7,10,6,5,7
+Zodiac;F;10,7,1,2,0,8,9,5,9,10
+La La Land;F;0,9,5,1,3,2,3,9,3,1
+Der Club der toten Dichter;F;0,10,4,0,0,2,5,10,3,5
+Better Call Saul;S;9,9,5,5,0,8,9,8,9,5
+Chernobyl;S;5,10,0,2,0,9,10,9,7,10
+Die Sopranos;S;9,9,4,6,0,8,10,8,9,6
+Succession;S;2,10,7,0,0,7,8,7,9,4
+True Detective;S;10,8,0,4,0,9,10,7,8,2
+Black Mirror;S;7,7,3,2,10,8,10,7,8,1
+Westworld;S;6,8,0,7,10,8,8,7,10,0
+The Mandalorian;S;1,5,5,8,10,6,4,6,4,0
+House of the Dragon;S;2,9,1,8,10,8,8,7,8,0
+The Last of Us;S;5,10,1,8,6,9,10,10,6,0
+Fargo;S;9,7,6,4,0,8,9,6,8,3
+Mindhunter;S;10,8,0,2,0,8,10,6,8,9
+Peaky Blinders;S;8,9,2,8,0,7,9,7,6,5
+Narcos;S;8,8,1,8,0,8,9,6,6,9
+Ozark;S;9,9,2,5,0,9,10,6,8,3
+House of Cards;S;6,9,2,1,0,7,8,5,8,3
+Homeland;S;9,8,0,6,0,9,8,6,8,5
+Lost;S;6,8,3,6,7,9,7,8,10,0
+Prison Break;S;8,6,1,8,0,9,7,6,7,1
+The Walking Dead;S;6,8,1,8,4,8,10,7,4,0
+Vikings;S;2,8,1,10,1,6,8,6,5,4
+Downton Abbey;S;0,9,4,0,0,2,3,8,5,6
+Gilmore Girls;S;0,7,8,0,0,1,1,8,3,3
+How I Met Your Mother;S;0,5,10,0,0,1,1,7,4,3
+The Big Bang Theory;S;0,3,10,0,2,1,1,5,2,2;Nielsen USA 2024: meistgebingte Serie, 265,5 Folgen pro Zuschauer
+Seinfeld;S;0,2,10,0,0,1,1,2,3,5
+Brooklyn Nine-Nine;S;3,2,10,3,0,2,1,4,3,2
+Parks and Recreation;S;0,3,10,0,0,1,1,6,3,4
+Modern Family;S;0,5,10,0,0,1,1,7,3,4
+Arrested Development;S;1,3,10,1,0,2,1,3,6,2
+Rick and Morty;S;2,4,10,6,10,5,4,5,7,0
+South Park;S;1,2,10,3,1,2,3,2,4,3
+Die Simpsons;S;0,3,10,2,0,1,1,5,3,2
+Family Guy;S;0,2,10,3,0,1,2,2,2,1
+Futurama;S;1,4,10,4,10,3,2,6,5,0
+Avatar: Der Herr der Elemente;S;1,7,6,7,8,6,4,9,6,0
+Arcane;S;3,8,2,8,8,8,8,9,7,0
+Cyberpunk: Edgerunners;S;3,8,1,9,10,8,9,10,5,0
+Attack on Titan;S;5,8,0,10,5,10,10,8,9,0
+Death Note;S;10,6,0,3,2,10,9,6,10,1
+Fullmetal Alchemist: Brotherhood;S;2,8,3,9,7,7,7,9,8,0
+One Piece;S;1,6,7,9,6,5,4,8,5,0
+Naruto;S;1,7,5,9,6,5,5,8,4,0
+Cowboy Bebop;S;4,7,5,8,9,6,6,8,5,0
+Neon Genesis Evangelion;S;3,9,2,7,9,7,9,8,9,0
+Dr. House;S;7,8,6,1,0,7,6,6,8,8
+Grey's Anatomy;S;1,10,3,1,0,5,4,9,4,5
+Scrubs;S;0,7,10,0,0,1,2,7,3,3
+Monk;S;8,4,8,1,0,5,3,5,6,2
+Dexter;S;9,8,3,4,0,8,10,6,7,2
+Hannibal;S;10,7,0,4,0,9,10,6,8,1
+Twin Peaks;S;9,8,3,1,5,7,10,5,9,0
+Akte X;S;8,6,2,4,8,8,8,5,8,1
+Star Trek: The Next Generation;S;1,6,3,3,10,5,3,6,7,0
+Battlestar Galactica;S;4,8,0,7,10,8,8,7,8,0
+The Expanse;S;5,8,1,7,10,8,7,6,9,0
+Foundation;S;2,8,0,3,10,5,5,6,9,0
+Severance;S;8,8,3,2,9,9,8,7,9,0
+Haus des Geldes;S;9,7,2,8,0,9,6,7,7,1
+Lupin;S;9,4,5,6,0,7,4,6,6,1
+Babylon Berlin;S;9,8,1,5,0,8,9,6,9,7
+Das Boot (Serie);S;5,9,0,6,0,8,9,6,7,8
+Deutschland 83;S;8,8,1,5,0,8,7,6,7,7
+Stromberg;S;0,4,9,0,0,1,2,3,3,6
+Bad Banks;S;5,9,1,1,0,7,7,5,7,5
+Fleabag;S;0,8,9,0,0,3,4,8,4,4
+Ted Lasso;S;0,7,9,1,0,1,1,9,3,2
+Schitt's Creek;S;0,4,10,0,0,1,1,8,3,2
+The Marvelous Mrs. Maisel;S;0,6,10,0,0,1,2,7,4,3
+Mad Men;S;1,10,3,0,0,3,7,7,8,8
+Boardwalk Empire;S;8,9,1,7,0,7,9,6,7,8
+Shameless;S;1,8,8,2,0,3,6,7,5,5
+This Is Us;S;0,10,3,0,0,3,4,10,6,3
+Euphoria;S;2,10,2,2,0,6,9,9,5,2
+The Bear;S;1,9,5,3,0,7,6,8,4,5
+Yellowstone;S;3,9,2,6,0,5,6,7,5,3
+Wednesday;S;6,4,6,5,8,6,6,5,5,0
+Loki;S;3,5,6,7,9,6,5,6,8,0
+WandaVision;S;3,6,6,4,8,6,5,8,7,0
+The Boys;S;4,5,7,9,6,7,8,5,6,1
+Mr. Robot;S;9,8,1,3,3,9,10,6,10,3
+Silo;S;7,8,0,3,9,8,9,6,9,0
+The Rookie;S;9,6,2,6,0,7,3,5,3,4
+Konklave;F;8,8,1,0,0,8,5,4,8,4
+Deadpool & Wolverine;F;1,3,9,9,6,6,3,4,3,0
+Das Kanu des Manitu;F;0,1,10,2,0,3,1,4,2,0
+Ein Minecraft Film;F;1,2,8,7,7,4,1,4,2,0
+`;
+  const DATA = RAW.trim().split("\n").map(line => {
+    const [title, type, values, meta] = line.split(";");
+    return { title, type, v: values.split(",").map(Number), meta: meta || "" };
+  });
+  const byTitle = Object.fromEntries(DATA.map(d => [d.title, d]));
+  const TYPE_NAME = { F: "Film", S: "Serie" };
+  const nCore = DATA.filter(d => d.meta).length;
+  const LIMIT = 20;
+
+  const state = { fav: "Star Wars: Eine neue Hoffnung", dim: 3, u: Array(LABELS.length).fill(5), scope: "core", type: "all", metric: "dot", more: false };
+
+  const $ = id => document.getElementById(id);
+  const dot = (a, b) => a.reduce((s, x, i) => s + x * b[i], 0);
+  const norm = a => Math.sqrt(dot(a, a));
+  const vec = a => `(${a.join(", ")})ᵀ`;
+  const fmt = (x, d = 1) => x.toLocaleString("de-DE", { maximumFractionDigits: d, minimumFractionDigits: 0 });
+  const esc = t => t.replace(/"/g, "&quot;");
+
+  // ---- Favorit
+  function buildPicker() {
+    const core = DATA.filter(d => d.meta);
+    const chips = (type, id, label) => {
+      $(id).innerHTML = `<span class="eyebrow">${label}</span>` + core.filter(d => d.type === type).map(d =>
+        `<button type="button" class="chip" data-t="${esc(d.title)}">${d.title}</button>`).join("");
+    };
+    chips("F", "chipsF", "Filme");
+    chips("S", "chipsS", "Serien");
+    const rest = DATA.filter(d => !d.meta).sort((a, b) => a.title.localeCompare(b.title, "de"));
+    const opt = d => `<option value="${esc(d.title)}">${d.title}</option>`;
+    $("moreSel").innerHTML = `<option value="">Weiterer Titel …</option>` +
+      `<optgroup label="Filme">${rest.filter(d => d.type === "F").map(opt).join("")}</optgroup>` +
+      `<optgroup label="Serien">${rest.filter(d => d.type === "S").map(opt).join("")}</optgroup>`;
+    document.querySelector(".picker").addEventListener("click", e => {
+      const b = e.target.closest(".chip");
+      if (!b) return;
+      $("moreSel").value = "";
+      setFav(b.dataset.t);
+    });
+    $("moreSel").addEventListener("change", e => { if (e.target.value) setFav(e.target.value); });
+  }
+  function setFav(title) { state.fav = title; buildCalc(); render(); }
+
+  // Segmented control: options = [[value, label], ...]
+  function seg(id, key, options, onChange) {
+    const el = $(id);
+    el.innerHTML = options.map(([v, l]) => `<button type="button" data-v="${v}">${l}</button>`).join("");
+    el.addEventListener("click", e => {
+      const b = e.target.closest("button");
+      if (!b) return;
+      state[key] = key === "dim" ? +b.dataset.v : b.dataset.v;
+      onChange && onChange();
+      render();
+    });
+  }
+
+  function buildSliders() {
+    const groups = { 0: "Genres", [GENRE_COUNT]: "Weitere Dimensionen" };
+    $("sliders").innerHTML = LABELS.slice(0, state.dim).map((l, i) => `
+      ${groups[i] ? `<div class="eyebrow group">${groups[i]}</div>` : ""}
+      <div class="slider">
+        <label for="s${i}"><span>${l}</span><output id="o${i}">${state.u[i]}</output></label>
+        <input id="s${i}" type="range" min="0" max="10" value="${state.u[i]}" data-i="${i}">
+      </div>`).join("");
+  }
+  $("sliders").addEventListener("input", e => {
+    const i = +e.target.dataset.i;
+    state.u[i] = +e.target.value;
+    $("o" + i).textContent = state.u[i];
+    render();
+  });
+
+  // ---- Nachrechnen
+  let solutionOpen = false;
+  function buildCalc() {
+    solutionOpen = false;
+    $("calcSum").value = "";
+  }
+  function mark(input, glyph, text, correct) {
+    const empty = text === "";
+    const st = empty ? "" : (+text === correct ? "ok" : "bad");
+    input.dataset.state = st;
+    glyph.className = "glyph" + (st ? " " + st : "");
+    glyph.textContent = st === "ok" ? "✓" : st === "bad" ? "✗" : "";
+  }
+  function updateCalc(u, v, dp) {
+    mark($("calcSum"), $("glyphSum"), $("calcSum").value, dp);
+    $("solution").hidden = !solutionOpen;
+    $("solve").setAttribute("aria-expanded", String(solutionOpen));
+    $("solve").textContent = solutionOpen ? "Lösung verbergen" : "Lösung zeigen";
+    $("solution").textContent = `u · v = ${dp}`;
+  }
+  $("calcSum").addEventListener("input", () => render());
+  $("solve").addEventListener("click", () => { solutionOpen = !solutionOpen; render(); });
+
+  // ---- Abbildung
+  const ORIGIN = { x: 44, y: 350 };
+  function arrow(x1, y1, x2, y2, cls) {
+    const dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy);
+    if (len < 2) return "";
+    const ux = dx / len, uy = dy / len, h = Math.min(11, len);
+    const bx = x2 - ux * h, by = y2 - uy * h, nx = -uy * h * 0.42, ny = ux * h * 0.42;
+    return `<line class="${cls}" x1="${x1}" y1="${y1}" x2="${bx}" y2="${by}"/>` +
+      `<polygon class="${cls}-head" points="${x2},${y2} ${bx + nx},${by + ny} ${bx - nx},${by - ny}"/>`;
+  }
+
+  // g: s Maßstab, vl Länge von v (bzw. 1), ul Länge von u (bzw. 1), p Projektion, cosA, big Beschriftung, top {w, p} oder null, unit true für Kosinus
+  function drawMain(g) {
+    const { x: ox, y: oy } = ORIGIN;
+    const { s, vl, ul, p, cosA, top, unit } = g;
+    const alpha = Math.acos(Math.max(-1, Math.min(1, cosA)));
+    const h = Math.sqrt(Math.max(0, ul * ul - p * p));
+    const tx = ox + p * s, ty = oy - h * s, vx = ox + vl * s;
+    const hat = unit ? "̂" : "";
+    let o = "";
+    if (unit) o += `<rect class="unit" x="${ox}" y="${oy - s}" width="${s}" height="${s}"/><path class="unit" d="M ${ox + s} ${oy} A ${s} ${s} 0 0 0 ${ox} ${oy - s}"/>`;
+    if (top) o += `<rect class="rect-top" x="${ox}" y="${oy - top.p * s}" width="${top.w * s}" height="${top.p * s}"/>`;
+    if (vl > 0) o += `<rect class="rect" x="${ox}" y="${oy - p * s}" width="${vl * s}" height="${p * s}"/>`;
+    o += `<line class="axis" x1="${ox}" y1="${oy}" x2="${ox + 320}" y2="${oy}"/><line class="axis" x1="${ox}" y1="${oy}" x2="${ox}" y2="${oy - 320}"/>`;
+    if (ul > 0 && vl > 0) {
+      o += `<line class="drop" x1="${tx}" y1="${ty}" x2="${tx}" y2="${oy}"/>`;
+      if (p > 0) o += `<path class="xfer" d="M ${tx} ${oy} A ${p * s} ${p * s} 0 0 0 ${ox} ${oy - p * s}"/>`;
+      const r = 38;
+      o += `<path class="arc" d="M ${ox + r} ${oy} A ${r} ${r} 0 0 0 ${ox + r * Math.cos(alpha)} ${oy - r * Math.sin(alpha)}"/>`;
+      o += `<text x="${ox + 56 * Math.cos(alpha / 2)}" y="${oy - 56 * Math.sin(alpha / 2) + 4}" text-anchor="middle">α</text>`;
+    }
+    if (vl > 0) {
+      o += arrow(ox, oy, vx, oy, "vv");
+      o += `<text class="t-ink" x="${vx}" y="${oy + 48}" text-anchor="end">${unit ? "‖v̂‖ = 1" : `‖v‖ = ${fmt(vl)}`}</text>`;
+      o += `<text class="t-ink" x="${vx - 4}" y="${oy - 8}" text-anchor="end">v${hat}</text>`;
+    }
+    if (ul > 0) {
+      o += arrow(ox, oy, tx, ty, "uu");
+      const left = tx > ox + 280;
+      o += `<text class="t-acc" x="${tx + (left ? -8 : 8)}" y="${ty - 6}" text-anchor="${left ? "end" : "start"}">u${hat}</text>`;
+    }
+    if (p > 0) {
+      o += `<line class="proj" x1="${ox}" y1="${oy + 12}" x2="${tx}" y2="${oy + 12}"/>`;
+      o += `<text class="t-mark" x="${ox + (tx - ox) / 2}" y="${oy + 32}" text-anchor="middle">p = ${fmt(p, unit ? 2 : 1)}</text>`;
+      o += `<text class="t-mark" transform="translate(${ox - 8} ${oy - (p * s) / 2}) rotate(-90)" text-anchor="middle">p</text>`;
+    }
+    o += `<text class="big" x="${ox}" y="22">${g.big}</text>`;
+    $("svgMain").innerHTML = o;
+    $("svgMain").setAttribute("aria-label", `Vektoren u und v im Winkel ${fmt(alpha * 180 / Math.PI, 0)} Grad, Rechteck ${fmt(vl, 2)} mal ${fmt(p, 2)}`);
+  }
+
+  function render() {
+    const { dim, metric } = state;
+    const isDot = metric === "dot";
+    const fav = byTitle[state.fav];
+    const u = state.u.slice(0, dim), v = fav.v.slice(0, dim);
+    const nu = norm(u), nv = norm(v), dp = dot(u, v);
+    const cosA = nu && nv ? dp / (nu * nv) : 0;
+    const alpha = Math.acos(Math.max(-1, Math.min(1, cosA))) * 180 / Math.PI;
+
+    $("uOut").textContent = `u = ${vec(u)}`;
+    [["dimSeg", "dim"], ["scopeSeg", "scope"], ["typeSeg", "type"], ["metricSeg", "metric"]]
+      .forEach(([id, key]) => $(id).querySelectorAll("button").forEach(b =>
+        b.setAttribute("aria-pressed", String(b.dataset.v === String(state[key])))));
+    document.querySelectorAll(".chip").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.t === state.fav)));
+
+    // Ranking für das gewählte Maß, die Datenbasis und den Typ
+    const best = 10 * u.reduce((s, x) => s + x, 0);
+    const rows = DATA
+      .filter(d => (state.scope === "all" || d.meta) && (state.type === "all" || d.type === state.type))
+      .map(d => {
+        const vv = d.v.slice(0, dim);
+        const dpp = dot(u, vv), nvv = norm(vv);
+        const score = isDot ? dpp : (nu && nvv ? dpp / (nu * nvv) : 0);
+        const fill = isDot ? (best ? dpp / best : 0) : score;
+        return { ...d, v: vv, dp: dpp, nv: nvv, score, fill };
+      })
+      .sort((a, b) => b.score - a.score);
+
+    // Favorit und Platz 1
+    const favScore = isDot ? dp : cosA;
+    const favIdx = rows.findIndex(r => r.title === fav.title);
+    const top = nu > 0 && rows.length ? rows[0] : null;
+    const topIsFav = top && top.title === fav.title;
+    const scopeTxt = state.scope === "all" ? `aller ${rows.length} Titel` : `der Auswahl`;
+
+    $("favName").innerHTML = `${fav.title}<span class="tag">${TYPE_NAME[fav.type]}</span>`;
+    $("favMeta").textContent = fav.meta;
+    $("favMeta").hidden = !fav.meta;
+    $("favVecLbl").textContent = `Vektor des Favoriten: ${fav.title}`;
+    $("favVec").textContent = `v = ${vec(v)}`;
+    updateCalc(u, v, dp);
+
+    // Zeichnung: Skalarprodukt in Originalmaßstab, Kosinus am Einheitsquadrat
+    const topRect = top && !topIsFav
+      ? (isDot ? { w: top.nv, p: top.nv ? top.dp / top.nv : 0 } : { w: 1, p: top.score })
+      : null;
+    if (isDot) {
+      const s = 300 / (10 * Math.sqrt(dim));
+      drawMain({ s, vl: nv, ul: nu, p: nv ? dp / nv : 0, cosA, top: topRect, unit: false, big: `u · v = ${fmt(dp)}` });
+    } else {
+      drawMain({ s: 300, vl: nu && nv ? 1 : 0, ul: nu && nv ? 1 : 0, p: cosA, cosA, top: topRect, unit: true, big: `cos α = ${fmt(cosA, 2)}` });
+    }
+
+    const sc = x => isDot ? `u · v = <b>${fmt(x)}</b>` : `cos α = <b>${fmt(x, 2)}</b>`;
+    let lg = `<div><i class="sw fav"></i><span>Favorit <b>${fav.title}</b>: ${sc(favScore)}${nu && favIdx >= 0 ? ` · Rang ${favIdx + 1} von ${rows.length}` : ""}</span></div>`;
+    if (top) {
+      lg += topIsFav
+        ? `<div><span>Dein Favorit steht in der Liste an Platz 1.</span></div>`
+        : `<div><i class="sw top"></i><span>Platz 1 ${scopeTxt}: <b>${top.title}</b>: ${sc(top.score)}</span><button type="button" data-t="${esc(top.title)}">als Favorit wählen</button></div>`;
+    }
+    $("legend").innerHTML = lg;
+    $("cap").textContent = isDot
+      ? "v liegt waagrecht, u steht im Winkel α dazu. Der Fußpunkt von u auf v hat den Abstand p vom Ursprung. Dreht man diese Strecke mit dem gepunkteten Bogen nach oben, entsteht das Rechteck ‖v‖ × p. Seine Fläche ist u · v. Das gestrichelte Rechteck gehört zu Platz 1 der Liste: gleiche Fläche, gleiches Skalarprodukt."
+      : "Beide Vektoren sind auf die Länge 1 gekürzt (û, v̂) und enden auf dem Viertelkreis. Die Projektion p ist dann cos α, und das Rechteck 1 × cos α ist ein Teil des Einheitsquadrats. Seine Fläche ist der Kosinus. Länge und Betrag spielen keine Rolle mehr, nur der Winkel. Gestrichelt: das Rechteck von Platz 1.";
+
+    // Liste
+    $("formula").textContent = isDot ? "u · v" : "u · v / (‖u‖ · ‖v‖)";
+    const shown = state.more ? rows : rows.slice(0, LIMIT);
+    $("more").hidden = rows.length <= LIMIT;
+    $("more").textContent = state.more ? "Weniger anzeigen" : `Alle ${rows.length} anzeigen`;
+    $("list").innerHTML = shown.map((r, i) => `
+      <li class="row${r.title === fav.title ? " is-fav" : ""}">
+        <span class="rank">${i + 1}</span>
+        <div class="info">
+          <span class="name">${r.title}<span class="tag">${TYPE_NAME[r.type]}</span></span>
+          ${r.meta ? `<span class="meta">${r.meta}</span>` : ""}
+          <span class="v">v = ${vec(r.v)}</span>
+        </div>
+        <div class="score"><b>${isDot ? r.score : r.score.toFixed(3)}</b>
+          <div class="bar"><i style="width:${Math.max(0, Math.min(1, r.fill)) * 100}%"></i></div></div>
+      </li>`).join("");
+  }
+
+  $("legend").addEventListener("click", e => {
+    const b = e.target.closest("button[data-t]");
+    if (b) { $("moreSel").value = ""; setFav(b.dataset.t); }
+  });
+  seg("dimSeg", "dim", [3, 4, 5, 6, 7, 8, 9, 10].map(n => [n, n]), () => { buildSliders(); buildCalc(); });
+  seg("scopeSeg", "scope", [["core", `Auswahl (${nCore})`], ["all", `Alle (${DATA.length})`]]);
+  seg("typeSeg", "type", [["all", "Alle"], ["F", "Filme"], ["S", "Serien"]]);
+  seg("metricSeg", "metric", [["dot", "Skalarprodukt"], ["cos", "Kosinus"]]);
+  $("more").addEventListener("click", () => { state.more = !state.more; render(); });
+  buildPicker();
+  buildSliders();
+  buildCalc();
+  render();
+</script>
+
+</body>
+</html>
